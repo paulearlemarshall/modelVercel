@@ -23,7 +23,6 @@ export type ModelBrowserData = {
 };
 
 type ProviderPayload = {
-  provider?: string;
   models?: JsonValue[];
   details?: { [key: string]: JsonValue };
 };
@@ -53,10 +52,10 @@ export async function loadModelBrowserData(): Promise<ModelBrowserData> {
     const fullPath = path.join(root, fileName);
     const raw = await fs.readFile(fullPath, "utf8");
     const payload = JSON.parse(raw) as ProviderPayload;
-    const provider =
-      typeof payload.provider === "string" && payload.provider.trim()
-        ? payload.provider.trim().toLowerCase()
-        : fileName.replace(/^results_/i, "").replace(/\.json$/i, "").toLowerCase();
+    const provider = fileName
+      .replace(/^results_/i, "")
+      .replace(/\.json$/i, "")
+      .toLowerCase();
 
     providers.add(provider);
 
