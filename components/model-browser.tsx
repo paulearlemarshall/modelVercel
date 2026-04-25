@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ModelBrowserData, ModelRecord, RefreshResponse } from "@/lib/model-types";
+import type { ModelBrowserData, RefreshResponse } from "@/lib/model-types";
 
 const EMPTY_DATA: ModelBrowserData = { providers: [], models: [] };
+
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
 
 function formatNumber(value: unknown): string {
   return typeof value === "number" ? value.toLocaleString() : "n/a";
@@ -21,6 +26,11 @@ export default function ModelBrowser() {
   const [selectedId, setSelectedId] = useState<string>(
     data.models[0] ? `${data.models[0].provider}:${data.models[0].id}` : ""
   );
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState<string>("");
+  const [chatSending, setChatSending] = useState<boolean>(false);
+  const [statusText, setStatusText] = useState<string>("Ready");
+  const [lastInferenceMs, setLastInferenceMs] = useState<number | null>(null);
 
   async function loadFromDb() {
     setLoading(true);
@@ -40,6 +50,7 @@ export default function ModelBrowser() {
       setData(payload.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
+      setStatusText("Failed to load data from DB");
     } finally {
       setLoading(false);
     }
@@ -61,11 +72,66 @@ export default function ModelBrowser() {
       }
 
       setRefreshResult(payload);
+      setStatusText(`Refresh completed for ${payload.scope}`);
       await loadFromDb();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Refresh failed");
+      setStatusText("Refresh failed");
     } finally {
       setRefreshing(false);
+    }
+  }
+
+  async function sendChatMessage() {
+    if (!selected) {
+      setStatusText("No model selected for chat");
+      return;
+    }
+
+    const content = chatInput.trim();
+    if (!content || chatSending) {
+      return;
+    }
+
+    const userMessage: ChatMessage = { role: "user", content };
+    const nextMessages = [...chatMessages, userMessage];
+
+    setChatInput("");
+    setChatMessages(nextMessages);
+    setChatSending(true);
+    setStatusText(`Sending chat to ${selected.provider}:${selected.id}`);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: selected.provider,
+          modelId: selected.id,
+          messages: nextMessages
+        })
+      });
+
+      const payload = (await response.json()) as {
+        ok: boolean;
+        responseText?: string;
+        inferenceMs?: number;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.ok || !payload.responseText) {
+        throw new Error(payload.error ?? "Chat request failed");
+      }
+
+      setChatMessages((existing) => [...existing, { role: "assistant", content: payload.responseText ?? "" }]);
+      setLastInferenceMs(payload.inferenceMs ?? null);
+      setStatusText(`Inference complete: ${payload.inferenceMs ?? "n/a"} ms`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Chat failed";
+      setChatMessages((existing) => [...existing, { role: "assistant", content: `Error: ${message}` }]);
+      setStatusText("Inference failed");
+    } finally {
+      setChatSending(false);
     }
   }
 
@@ -111,6 +177,12 @@ export default function ModelBrowser() {
       setSelectedId(selectedKey);
     }
   }, [selectedId, selectedKey]);
+
+  useEffect(() => {
+    setChatMessages([]);
+    setChatInput("");
+    setLastInferenceMs(null);
+  }, [selectedKey]);
 
   return (
     <main className="page">
@@ -187,11 +259,44 @@ export default function ModelBrowser() {
         </section>
       ) : null}
 
+      <section className="chat-panel">
+        <h2>Chat</h2>
+        <p>
+          Model: <strong>{selected ? `${selected.provider}:${selected.id}` : "none selected"}</strong>
+        </p>
+        <div className="chat-history">
+          {chatMessages.length ? (
+            chatMessages.map((message, index) => (
+              <div key={`${message.role}-${index}`} className={`chat-message ${message.role}`}>
+                <span className="chat-role">{message.role === "user" ? "you" : "assistant"}</span>
+                <p>{message.content}</p>
+              </div>
+            ))
+          ) : (
+            <p className="chat-empty">No messages yet. Send a prompt to start chatting.</p>
+          )}
+        </div>
+        <div className="chat-input-row">
+          <textarea
+            value={chatInput}
+            onChange={(event) => setChatInput(event.target.value)}
+            placeholder="Ask the selected model something..."
+            rows={3}
+            disabled={!selected || chatSending}
+          />
+          <button type="button" onClick={() => void sendChatMessage()} disabled={!selected || chatSending}>
+            {chatSending ? "Sending..." : "Send"}
+          </button>
+        </div>
+      </section>
+
       <section className="stats">
         <span>Visible: {visibleModels.length}</span>
         <span>Providers: {data.providers.length}</span>
         <span>Total loaded: {data.models.length}</span>
         <span>Source: Vercel Postgres</span>
+        <span>Status: {statusText}</span>
+        <span>Inference: {lastInferenceMs === null ? "n/a" : `${lastInferenceMs} ms`}</span>
       </section>
 
       <section className="grid">
