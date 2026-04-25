@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, modelCount, readModelData, upsertProviderModels } from "@/lib/db";
 import { loadModelBrowserData } from "@/lib/model-data";
+import { PROVIDER_ENV_VARS, refreshProviderWithModels } from "@/lib/provider-refresh";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,7 @@ export async function GET(request: Request) {
   try {
     await ensureSchema();
 
-    const existingCount = await modelCount();
+    let existingCount = await modelCount();
     if (existingCount === 0) {
       const seed = await loadModelBrowserData();
       const byProvider = new Map<string, typeof seed.models>();
@@ -21,6 +22,20 @@ export async function GET(request: Request) {
 
       for (const [provider, records] of byProvider.entries()) {
         await upsertProviderModels(provider, records);
+      }
+
+      existingCount = await modelCount();
+    }
+
+    if (existingCount === 0) {
+      const providers = Object.keys(PROVIDER_ENV_VARS).sort();
+      for (const provider of providers) {
+        try {
+          const { models } = await refreshProviderWithModels(provider);
+          await upsertProviderModels(provider, models);
+        } catch {
+          continue;
+        }
       }
     }
 
