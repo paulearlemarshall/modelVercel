@@ -30,6 +30,7 @@ export type ProviderRefreshResult = {
   provider: string;
   ok: boolean;
   modelCount: number;
+  dbCountAfter?: number;
   totalDurationMs: number;
   apiCalls: ApiCallTiming[];
   error?: string;

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ensureSchema, upsertProviderModels } from "@/lib/db";
+import { ensureSchema, modelCount, upsertProviderModels } from "@/lib/db";
 import { PROVIDER_ENV_VARS, refreshProviderWithModels } from "@/lib/provider-refresh";
 import type { ProviderRefreshResult, RefreshResponse } from "@/lib/model-types";
 
@@ -40,7 +40,11 @@ export async function POST(request: Request) {
       try {
         const { models, result } = await refreshProviderWithModels(provider);
         await upsertProviderModels(provider, models);
-        providerResults.push(result);
+        const countAfter = await modelCount();
+        providerResults.push({
+          ...result,
+          dbCountAfter: countAfter
+        });
       } catch (error) {
         providerResults.push({
           provider,

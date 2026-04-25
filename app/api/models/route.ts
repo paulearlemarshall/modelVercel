@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     await ensureSchema();
+    const populationErrors: string[] = [];
 
     let existingCount = await modelCount();
     if (existingCount === 0) {
@@ -33,10 +34,25 @@ export async function GET(request: Request) {
         try {
           const { models } = await refreshProviderWithModels(provider);
           await upsertProviderModels(provider, models);
-        } catch {
+        } catch (error) {
+          populationErrors.push(
+            `${provider}: ${error instanceof Error ? error.message : "refresh failed"}`
+          );
           continue;
         }
       }
+
+      existingCount = await modelCount();
+    }
+
+    if (existingCount === 0 && populationErrors.length) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Database is empty after population attempts: ${populationErrors.join(" | ")}`
+        },
+        { status: 500 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
