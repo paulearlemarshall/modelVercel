@@ -57,6 +57,62 @@ body {
   font-size: 0.95rem;
 }
 
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.actions button {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--bg-soft);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.actions button:hover:enabled {
+  border-color: var(--accent);
+}
+
+.actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error {
+  border: 1px solid #7e3342;
+  background: #35161f;
+  color: #ffc7d2;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.refresh-panel {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel), black 20%);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.refresh-panel h2 {
+  margin: 0 0 8px;
+}
+
+.refresh-panel p {
+  margin: 0 0 8px;
+  color: var(--muted);
+}
+
+.refresh-panel ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
 .controls select,
 .controls input[type="search"] {
   border: 1px solid var(--border);

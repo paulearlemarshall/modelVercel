@@ -1,23 +1,77 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ModelBrowserData, ModelRecord } from "@/lib/model-data";
+import type { ModelBrowserData, ModelRecord, RefreshResponse } from "@/lib/model-types";
 
-type ModelBrowserProps = {
-  data: ModelBrowserData;
-};
+const EMPTY_DATA: ModelBrowserData = { providers: [], models: [] };
 
 function formatNumber(value: unknown): string {
   return typeof value === "number" ? value.toLocaleString() : "n/a";
 }
 
-export default function ModelBrowser({ data }: ModelBrowserProps) {
+export default function ModelBrowser() {
+  const [data, setData] = useState<ModelBrowserData>(EMPTY_DATA);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [refreshResult, setRefreshResult] = useState<RefreshResponse | null>(null);
   const [provider, setProvider] = useState<string>("all");
   const [query, setQuery] = useState<string>("");
   const [serverlessOnly, setServerlessOnly] = useState<boolean>(false);
   const [selectedId, setSelectedId] = useState<string>(
     data.models[0] ? `${data.models[0].provider}:${data.models[0].id}` : ""
   );
+
+  async function loadFromDb() {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/models?provider=all`, { cache: "no-store" });
+      const payload = (await response.json()) as {
+        ok: boolean;
+        data?: ModelBrowserData;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.ok || !payload.data) {
+        throw new Error(payload.error ?? "Failed to load models from DB");
+      }
+
+      setData(payload.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load data");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function refreshProviderScope() {
+    setRefreshing(true);
+    setError("");
+    try {
+      const response = await fetch("/api/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider })
+      });
+
+      const payload = (await response.json()) as RefreshResponse & { error?: string };
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error ?? "Refresh failed");
+      }
+
+      setRefreshResult(payload);
+      await loadFromDb();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Refresh failed");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadFromDb();
+  }, []);
 
   const providerScopedModels = useMemo(() => {
     return data.models.filter((model) => {
@@ -62,7 +116,7 @@ export default function ModelBrowser({ data }: ModelBrowserProps) {
     <main className="page">
       <header className="hero">
         <h1>Model Browser</h1>
-        <p>Next.js + Vercel version of your model explorer TUI.</p>
+        <p>Neon-backed model inventory with provider refresh timings.</p>
       </header>
 
       <section className="controls">
@@ -96,17 +150,54 @@ export default function ModelBrowser({ data }: ModelBrowserProps) {
           />
           Serverless only
         </label>
+
+        <div className="actions">
+          <button type="button" onClick={() => void loadFromDb()} disabled={loading || refreshing}>
+            Reload from DB
+          </button>
+          <button type="button" onClick={() => void refreshProviderScope()} disabled={loading || refreshing}>
+            {refreshing ? "Refreshing..." : provider === "all" ? "Refresh all providers" : `Refresh ${provider}`}
+          </button>
+        </div>
       </section>
+
+      {error ? <section className="error">{error}</section> : null}
+
+      {refreshResult ? (
+        <section className="refresh-panel">
+          <h2>Last refresh</h2>
+          <p>
+            Scope: <strong>{refreshResult.scope}</strong> | Started: {new Date(refreshResult.startedAt).toLocaleString()} |
+            Finished: {new Date(refreshResult.finishedAt).toLocaleString()}
+          </p>
+          <ul>
+            {refreshResult.providerResults.map((entry) => (
+              <li key={entry.provider}>
+                [{entry.provider}] {entry.ok ? "ok" : "failed"} | models: {entry.modelCount} | total: {entry.totalDurationMs}
+                ms
+                {entry.error ? ` | error: ${entry.error}` : ""}
+                {entry.apiCalls.length
+                  ? ` | calls: ${entry.apiCalls
+                      .map((call) => `${call.label} ${call.durationMs}ms ${call.itemCount ?? ""}`.trim())
+                      .join("; ")}`
+                  : ""}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="stats">
         <span>Visible: {visibleModels.length}</span>
         <span>Providers: {data.providers.length}</span>
         <span>Total loaded: {data.models.length}</span>
+        <span>Source: Neon DB</span>
       </section>
 
       <section className="grid">
         <aside className="panel list-panel">
           <h2>Models</h2>
+          {loading ? <p>Loading model data...</p> : null}
           <ul>
             {visibleModels.map((model) => {
               const key = `${model.provider}:${model.id}`;
@@ -162,7 +253,7 @@ export default function ModelBrowser({ data }: ModelBrowserProps) {
               ) : null}
             </>
           ) : (
-            <p>No models match the current filters.</p>
+            <p>{loading ? "Loading..." : "No models match the current filters."}</p>
           )}
         </section>
       </section>

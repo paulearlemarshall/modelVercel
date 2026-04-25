@@ -1,26 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
-
-export type ModelRecord = {
-  provider: string;
-  id: string;
-  supportsServerless: boolean;
-  model: { [key: string]: JsonValue };
-  details?: { [key: string]: JsonValue };
-};
-
-export type ModelBrowserData = {
-  providers: string[];
-  models: ModelRecord[];
-};
+import type { JsonValue, ModelBrowserData, ModelRecord } from "@/lib/model-types";
 
 type ProviderPayload = {
   models?: JsonValue[];
