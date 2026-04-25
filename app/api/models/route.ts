@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ensureSchema, modelCount, readModelData, upsertProviderModels } from "@/lib/db";
+import { ensureSchema, modelCount, readModelSummaryData, upsertProviderModels } from "@/lib/db";
 import { loadModelBrowserData } from "@/lib/model-data";
 import { PROVIDER_ENV_VARS, refreshProviderWithModels } from "@/lib/provider-refresh";
 
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const provider = searchParams.get("provider") ?? "all";
-    const data = await readModelData(provider);
+    const data = await readModelSummaryData(provider);
 
     return NextResponse.json({ ok: true, data });
   } catch (error) {

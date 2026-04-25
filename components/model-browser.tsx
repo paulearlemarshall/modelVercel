@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ModelBrowserData, RefreshResponse } from "@/lib/model-types";
+import type { ModelBrowserData, ModelRecord, RefreshResponse } from "@/lib/model-types";
 
 const EMPTY_DATA: ModelBrowserData = { providers: [], models: [] };
 
@@ -29,6 +29,7 @@ export default function ModelBrowser() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState<string>("");
   const [chatSending, setChatSending] = useState<boolean>(false);
+  const [selectedFullModel, setSelectedFullModel] = useState<ModelRecord | null>(null);
   const [statusText, setStatusText] = useState<string>("Ready");
   const [lastInferenceMs, setLastInferenceMs] = useState<number | null>(null);
 
@@ -170,6 +171,11 @@ export default function ModelBrowser() {
     visibleModels[0] ??
     null;
 
+  const activeModel =
+    selectedFullModel && selected && selectedFullModel.provider === selected.provider && selectedFullModel.id === selected.id
+      ? selectedFullModel
+      : selected;
+
   const selectedKey = selected ? `${selected.provider}:${selected.id}` : "";
 
   useEffect(() => {
@@ -182,7 +188,47 @@ export default function ModelBrowser() {
     setChatMessages([]);
     setChatInput("");
     setLastInferenceMs(null);
+    setSelectedFullModel(null);
   }, [selectedKey]);
+
+  useEffect(() => {
+    const selectedProvider = selected?.provider;
+    const selectedModelId = selected?.id;
+
+    if (!selectedProvider || !selectedModelId) {
+      setSelectedFullModel(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadSelectedModel = async () => {
+      try {
+        const response = await fetch(
+          `/api/model?provider=${encodeURIComponent(selectedProvider)}&modelId=${encodeURIComponent(selectedModelId)}`,
+          { cache: "no-store" }
+        );
+        const payload = (await response.json()) as {
+          ok: boolean;
+          model?: ModelRecord;
+        };
+
+        if (!cancelled && response.ok && payload.ok && payload.model) {
+          setSelectedFullModel(payload.model);
+        }
+      } catch {
+        if (!cancelled) {
+          setSelectedFullModel(null);
+        }
+      }
+    };
+
+    void loadSelectedModel();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.provider, selected?.id]);
 
   return (
     <main className="page">
@@ -326,34 +372,34 @@ export default function ModelBrowser() {
 
         <section className="panel detail-panel">
           <h2>Details</h2>
-          {selected ? (
+          {activeModel ? (
             <>
               <div className="meta">
                 <span>
-                  <strong>Provider:</strong> {selected.provider}
+                  <strong>Provider:</strong> {activeModel.provider}
                 </span>
                 <span>
-                  <strong>Model:</strong> {selected.id}
+                  <strong>Model:</strong> {activeModel.id}
                 </span>
                 <span>
-                  <strong>Serverless:</strong> {selected.supportsServerless ? "yes" : "no"}
+                  <strong>Serverless:</strong> {activeModel.supportsServerless ? "yes" : "no"}
                 </span>
                 <span>
                   <strong>Input Tokens:</strong>{" "}
-                  {formatNumber(selected.model.max_input_tokens ?? selected.model.inputTokenLimit)}
+                  {formatNumber(activeModel.model.max_input_tokens ?? activeModel.model.inputTokenLimit)}
                 </span>
                 <span>
                   <strong>Output Tokens:</strong>{" "}
-                  {formatNumber(selected.model.max_tokens ?? selected.model.outputTokenLimit)}
+                  {formatNumber(activeModel.model.max_tokens ?? activeModel.model.outputTokenLimit)}
                 </span>
               </div>
 
               <h3>Model metadata</h3>
-              <pre>{JSON.stringify(selected.model, null, 2)}</pre>
-              {selected.details ? (
+              <pre>{JSON.stringify(activeModel.model, null, 2)}</pre>
+              {activeModel.details ? (
                 <>
                   <h3>Cached details</h3>
-                  <pre>{JSON.stringify(selected.details, null, 2)}</pre>
+                  <pre>{JSON.stringify(activeModel.details, null, 2)}</pre>
                 </>
               ) : null}
             </>

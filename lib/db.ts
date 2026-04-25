@@ -9,6 +9,39 @@ type Row = {
   details_json: { [key: string]: JsonValue } | null;
 };
 
+function toSummaryModel(row: Row): ModelRecord {
+  const model = row.model_json;
+  const summary: { [key: string]: JsonValue } = {};
+
+  for (const key of [
+    "id",
+    "name",
+    "model",
+    "model_id",
+    "displayName",
+    "owned_by",
+    "max_input_tokens",
+    "max_tokens",
+    "inputTokenLimit",
+    "outputTokenLimit",
+    "description"
+  ]) {
+    const value = model[key];
+    if (value !== undefined) {
+      summary[key] = value;
+    }
+  }
+
+  summary.supportsServerless = row.supports_serverless;
+
+  return {
+    provider: row.provider,
+    id: row.model_id,
+    supportsServerless: row.supports_serverless,
+    model: summary
+  };
+}
+
 let schemaReady = false;
 
 export async function ensureSchema(): Promise<void> {
@@ -107,6 +140,48 @@ export async function readModelData(providerScope?: string): Promise<ModelBrowse
   const providers = [...new Set(models.map((entry) => entry.provider))].sort();
 
   return { providers, models };
+}
+
+export async function readModelSummaryData(providerScope?: string): Promise<ModelBrowserData> {
+  const result = providerScope && providerScope !== "all"
+    ? await sql`
+        SELECT provider, model_id, supports_serverless, model_json, details_json
+        FROM model_inventory
+        WHERE provider = ${providerScope}
+        ORDER BY provider, model_id;
+      `
+    : await sql`
+        SELECT provider, model_id, supports_serverless, model_json, details_json
+        FROM model_inventory
+        ORDER BY provider, model_id;
+      `;
+  const rows = result.rows as Row[];
+
+  const models = rows.map((row) => toSummaryModel(row));
+  const providers = [...new Set(models.map((entry) => entry.provider))].sort();
+
+  return { providers, models };
+}
+
+export async function readSingleModel(provider: string, modelId: string): Promise<ModelRecord | null> {
+  const result = await sql`
+    SELECT provider, model_id, supports_serverless, model_json, details_json
+    FROM model_inventory
+    WHERE provider = ${provider} AND model_id = ${modelId}
+    LIMIT 1;
+  `;
+  const row = result.rows[0] as Row | undefined;
+  if (!row) {
+    return null;
+  }
+
+  return {
+    provider: row.provider,
+    id: row.model_id,
+    supportsServerless: row.supports_serverless,
+    model: row.model_json,
+    details: row.details_json ?? undefined
+  };
 }
 
 export async function modelCount(): Promise<number> {
