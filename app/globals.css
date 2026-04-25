@@ -170,6 +170,12 @@ body {
   letter-spacing: 0.03em;
 }
 
+.chat-model-tag {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+}
+
 .chat-message p {
   margin: 0;
   color: var(--text);

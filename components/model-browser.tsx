@@ -8,6 +8,8 @@ const EMPTY_DATA: ModelBrowserData = { providers: [], models: [] };
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
+  provider: string;
+  modelId: string;
 };
 
 function formatNumber(value: unknown): string {
@@ -94,7 +96,12 @@ export default function ModelBrowser() {
       return;
     }
 
-    const userMessage: ChatMessage = { role: "user", content };
+    const userMessage: ChatMessage = {
+      role: "user",
+      content,
+      provider: selected.provider,
+      modelId: selected.id
+    };
     const nextMessages = [...chatMessages, userMessage];
 
     setChatInput("");
@@ -109,7 +116,10 @@ export default function ModelBrowser() {
         body: JSON.stringify({
           provider: selected.provider,
           modelId: selected.id,
-          messages: nextMessages
+          messages: nextMessages.map((message) => ({
+            role: message.role,
+            content: message.content
+          }))
         })
       });
 
@@ -117,6 +127,8 @@ export default function ModelBrowser() {
         ok: boolean;
         responseText?: string;
         inferenceMs?: number;
+        provider?: string;
+        modelId?: string;
         error?: string;
       };
 
@@ -124,12 +136,30 @@ export default function ModelBrowser() {
         throw new Error(payload.error ?? "Chat request failed");
       }
 
-      setChatMessages((existing) => [...existing, { role: "assistant", content: payload.responseText ?? "" }]);
+      setChatMessages((existing) => [
+        ...existing,
+        {
+          role: "assistant",
+          content: payload.responseText ?? "",
+          provider: payload.provider ?? selected.provider,
+          modelId: payload.modelId ?? selected.id
+        }
+      ]);
       setLastInferenceMs(payload.inferenceMs ?? null);
-      setStatusText(`Inference complete: ${payload.inferenceMs ?? "n/a"} ms`);
+      setStatusText(
+        `Inference complete: ${payload.inferenceMs ?? "n/a"} ms (${payload.provider ?? selected.provider}:${payload.modelId ?? selected.id})`
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : "Chat failed";
-      setChatMessages((existing) => [...existing, { role: "assistant", content: `Error: ${message}` }]);
+      setChatMessages((existing) => [
+        ...existing,
+        {
+          role: "assistant",
+          content: `Error: ${message}`,
+          provider: selected.provider,
+          modelId: selected.id
+        }
+      ]);
       setStatusText("Inference failed");
     } finally {
       setChatSending(false);
@@ -185,9 +215,6 @@ export default function ModelBrowser() {
   }, [selectedId, selectedKey]);
 
   useEffect(() => {
-    setChatMessages([]);
-    setChatInput("");
-    setLastInferenceMs(null);
     setSelectedFullModel(null);
   }, [selectedKey]);
 
@@ -315,6 +342,9 @@ export default function ModelBrowser() {
             chatMessages.map((message, index) => (
               <div key={`${message.role}-${index}`} className={`chat-message ${message.role}`}>
                 <span className="chat-role">{message.role === "user" ? "you" : "assistant"}</span>
+                <span className="chat-model-tag">
+                  {message.provider}:{message.modelId}
+                </span>
                 <p>{message.content}</p>
               </div>
             ))
