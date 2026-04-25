@@ -7,10 +7,6 @@ type ModelBrowserProps = {
   data: ModelBrowserData;
 };
 
-function toSearchBlob(model: ModelRecord): string {
-  return JSON.stringify(model).toLowerCase();
-}
-
 function formatNumber(value: unknown): string {
   return typeof value === "number" ? value.toLocaleString() : "n/a";
 }
@@ -19,10 +15,11 @@ export default function ModelBrowser({ data }: ModelBrowserProps) {
   const [provider, setProvider] = useState<string>("all");
   const [query, setQuery] = useState<string>("");
   const [serverlessOnly, setServerlessOnly] = useState<boolean>(false);
-  const [selectedId, setSelectedId] = useState<string>(data.models[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState<string>(
+    data.models[0] ? `${data.models[0].provider}:${data.models[0].id}` : ""
+  );
 
-  const visibleModels = useMemo(() => {
-    const q = query.trim().toLowerCase();
+  const providerScopedModels = useMemo(() => {
     return data.models.filter((model) => {
       if (provider !== "all" && model.provider !== provider) {
         return false;
@@ -32,17 +29,21 @@ export default function ModelBrowser({ data }: ModelBrowserProps) {
         return false;
       }
 
+      return true;
+    });
+  }, [data.models, provider, serverlessOnly]);
+
+  const visibleModels = useMemo(() => {
+    const q = query.toLowerCase();
+    return providerScopedModels.filter((model) => {
       if (!q) {
         return true;
       }
 
-      return (
-        model.provider.includes(q) ||
-        model.id.toLowerCase().includes(q) ||
-        toSearchBlob(model).includes(q)
-      );
+      const rowText = `${model.provider} ${model.id}`.toLowerCase();
+      return rowText.includes(q);
     });
-  }, [data.models, provider, query, serverlessOnly]);
+  }, [providerScopedModels, query]);
 
   const selected =
     visibleModels.find((model) => `${model.provider}:${model.id}` === selectedId) ??
@@ -83,7 +84,7 @@ export default function ModelBrowser({ data }: ModelBrowserProps) {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="model id, provider, or any field"
+            placeholder="type to filter current model list"
           />
         </label>
 
@@ -151,8 +152,14 @@ export default function ModelBrowser({ data }: ModelBrowserProps) {
                 </span>
               </div>
 
-              <h3>JSON payload</h3>
-              <pre>{JSON.stringify(selected.details ?? selected.model, null, 2)}</pre>
+              <h3>Model metadata</h3>
+              <pre>{JSON.stringify(selected.model, null, 2)}</pre>
+              {selected.details ? (
+                <>
+                  <h3>Cached details</h3>
+                  <pre>{JSON.stringify(selected.details, null, 2)}</pre>
+                </>
+              ) : null}
             </>
           ) : (
             <p>No models match the current filters.</p>
