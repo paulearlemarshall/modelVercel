@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { sql } from "@vercel/postgres";
 import type { JsonValue, ModelBrowserData, ModelRecord } from "@/lib/model-types";
 
 type Row = {
@@ -11,25 +11,11 @@ type Row = {
 
 let schemaReady = false;
 
-function connectionString(): string {
-  const url =
-    process.env.NEON_DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.DATABASE_URL ?? "";
-  if (!url) {
-    throw new Error("Missing database URL. Set NEON_DATABASE_URL (or POSTGRES_URL / DATABASE_URL).");
-  }
-  return url;
-}
-
-function sqlClient() {
-  return neon(connectionString());
-}
-
 export async function ensureSchema(): Promise<void> {
   if (schemaReady) {
     return;
   }
 
-  const sql = sqlClient();
   await sql`
     CREATE TABLE IF NOT EXISTS model_inventory (
       provider TEXT NOT NULL,
@@ -46,13 +32,10 @@ export async function ensureSchema(): Promise<void> {
 }
 
 export async function clearProvider(provider: string): Promise<void> {
-  const sql = sqlClient();
   await sql`DELETE FROM model_inventory WHERE provider = ${provider};`;
 }
 
 export async function upsertProviderModels(provider: string, models: ModelRecord[]): Promise<void> {
-  const sql = sqlClient();
-
   await clearProvider(provider);
 
   if (!models.length) {
@@ -81,8 +64,7 @@ export async function upsertProviderModels(provider: string, models: ModelRecord
 }
 
 export async function readModelData(providerScope?: string): Promise<ModelBrowserData> {
-  const sql = sqlClient();
-  const rows = (providerScope && providerScope !== "all"
+  const result = providerScope && providerScope !== "all"
     ? await sql`
         SELECT provider, model_id, supports_serverless, model_json, details_json
         FROM model_inventory
@@ -93,7 +75,8 @@ export async function readModelData(providerScope?: string): Promise<ModelBrowse
         SELECT provider, model_id, supports_serverless, model_json, details_json
         FROM model_inventory
         ORDER BY provider, model_id;
-      `) as unknown as Row[];
+      `;
+  const rows = result.rows as Row[];
 
   const models: ModelRecord[] = rows.map((row) => ({
     provider: row.provider,
@@ -109,8 +92,7 @@ export async function readModelData(providerScope?: string): Promise<ModelBrowse
 }
 
 export async function modelCount(): Promise<number> {
-  const sql = sqlClient();
-  const rows = (await sql`SELECT COUNT(*)::text AS count FROM model_inventory;`) as unknown as {
+  const rows = (await sql`SELECT COUNT(*)::text AS count FROM model_inventory;`).rows as {
     count: string;
   }[];
   return Number(rows[0]?.count ?? "0");

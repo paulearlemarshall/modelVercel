@@ -191,7 +191,7 @@ export default function ModelBrowser() {
         <span>Visible: {visibleModels.length}</span>
         <span>Providers: {data.providers.length}</span>
         <span>Total loaded: {data.models.length}</span>
-        <span>Source: Neon DB</span>
+        <span>Source: Vercel Postgres</span>
       </section>
 
       <section className="grid">
