@@ -36,36 +36,48 @@ export async function clearProvider(provider: string): Promise<void> {
 }
 
 export async function upsertProviderModels(provider: string, models: ModelRecord[]): Promise<void> {
-  await clearProvider(provider);
+  const client = await sql.connect();
 
-  if (!models.length) {
-    return;
-  }
+  try {
+    await client.sql`BEGIN;`;
+    await client.sql`DELETE FROM model_inventory WHERE provider = ${provider};`;
 
-  for (const model of models) {
-    await sql`
-      INSERT INTO model_inventory (
-        provider,
-        model_id,
-        supports_serverless,
-        model_json,
-        details_json,
-        updated_at
-      ) VALUES (
-        ${provider},
-        ${model.id},
-        ${model.supportsServerless},
-        ${JSON.stringify(model.model)},
-        ${JSON.stringify(model.details ?? null)},
-        NOW()
-      )
-      ON CONFLICT (provider, model_id)
-      DO UPDATE SET
-        supports_serverless = EXCLUDED.supports_serverless,
-        model_json = EXCLUDED.model_json,
-        details_json = EXCLUDED.details_json,
-        updated_at = NOW();
-    `;
+    for (const model of models) {
+      await client.sql`
+        INSERT INTO model_inventory (
+          provider,
+          model_id,
+          supports_serverless,
+          model_json,
+          details_json,
+          updated_at
+        ) VALUES (
+          ${provider},
+          ${model.id},
+          ${model.supportsServerless},
+          ${JSON.stringify(model.model)},
+          ${JSON.stringify(model.details ?? null)},
+          NOW()
+        )
+        ON CONFLICT (provider, model_id)
+        DO UPDATE SET
+          supports_serverless = EXCLUDED.supports_serverless,
+          model_json = EXCLUDED.model_json,
+          details_json = EXCLUDED.details_json,
+          updated_at = NOW();
+      `;
+    }
+
+    await client.sql`COMMIT;`;
+  } catch (error) {
+    try {
+      await client.sql`ROLLBACK;`;
+    } catch {
+      // no-op
+    }
+    throw error;
+  } finally {
+    client.release();
   }
 }
 

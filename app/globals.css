@@ -224,7 +224,10 @@ body {
   align-items: center;
   display: flex;
   gap: 8px;
-  margin-top: 22px;
+  margin-top: 0;
+  align-self: end;
+  min-height: 44px;
+  padding-bottom: 6px;
 }
 
 .stats {
