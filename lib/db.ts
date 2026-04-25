@@ -58,7 +58,13 @@ export async function upsertProviderModels(provider: string, models: ModelRecord
         ${JSON.stringify(model.model)},
         ${JSON.stringify(model.details ?? null)},
         NOW()
-      );
+      )
+      ON CONFLICT (provider, model_id)
+      DO UPDATE SET
+        supports_serverless = EXCLUDED.supports_serverless,
+        model_json = EXCLUDED.model_json,
+        details_json = EXCLUDED.details_json,
+        updated_at = NOW();
     `;
   }
 }
