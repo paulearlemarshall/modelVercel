@@ -1,0 +1,90 @@
+{
+  "provider": "xai",
+  "model_count": 14,
+  "models": [
+    {
+      "id": "grok-3",
+      "created": 1743724800,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-3-mini",
+      "created": 1743724800,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-4-0709",
+      "created": 1752019200,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-4-1-fast-non-reasoning",
+      "created": 1763510400,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-4-1-fast-reasoning",
+      "created": 1763510400,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-4-fast-non-reasoning",
+      "created": 1756944000,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-4-fast-reasoning",
+      "created": 1756944000,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-4.20-0309-non-reasoning",
+      "created": 1773014400,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-4.20-0309-reasoning",
+      "created": 1773014400,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-4.20-multi-agent-0309",
+      "created": 1773014400,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-code-fast-1",
+      "created": 1755993600,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-imagine-image",
+      "created": 1769558400,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-imagine-image-pro",
+      "created": 1769558400,
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "id": "grok-imagine-video",
+      "created": 1769558400,
+      "object": "model",
+      "owned_by": "xai"
+    }
+  ]
+}

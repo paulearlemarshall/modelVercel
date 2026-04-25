@@ -1,0 +1,16 @@
+{
+  "provider": "deepseek",
+  "model_count": 2,
+  "models": [
+    {
+      "id": "deepseek-v4-flash",
+      "object": "model",
+      "owned_by": "deepseek"
+    },
+    {
+      "id": "deepseek-v4-pro",
+      "object": "model",
+      "owned_by": "deepseek"
+    }
+  ]
+}
